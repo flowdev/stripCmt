@@ -13,25 +13,11 @@ type LineReader interface {
 type BufferedLineReader struct {
   br *bufio.Reader
 }
-func NewBufferedLineReader(r io.Reader) LineReader {
-  return BufferedLineReader{bufio.NewReader(r)}
+func NewBufferedLineReader(r io.Reader) *BufferedLineReader {
+  return &BufferedLineReader{bufio.NewReader(r)}
 }
-func (lr BufferedLineReader) ReadLine() (line string, err error) {
+func (lr *BufferedLineReader) ReadLine() (line string, err error) {
   return lr.br.ReadString('\n')
-}
-
-type EolStripper struct {
-  lr LineReader
-}
-func NewEolStripper(lr LineReader) EolStripper {
-  return EolStripper{lr}
-}
-func (eols EolStripper) ReadLine() (line string, err error) {
-  line, err = eols.lr.ReadLine()
-  if err == nil || err == io.EOF {
-    line = strings.TrimRight(line, "\r\n")
-  }
-  return line, err
 }
 
 type EofDelayer struct {
@@ -54,13 +40,31 @@ func (eofd *EofDelayer) ReadLine() (line string, err error) {
   }
 }
 
+type EolStripper struct {
+  lr LineReader
+}
+func NewEolStripper(lr LineReader) *EolStripper {
+  return &EolStripper{lr}
+}
+func (eols *EolStripper) ReadLine() (line string, err error) {
+  line, err = eols.lr.ReadLine()
+  if err == nil || err == io.EOF {
+    line = strings.TrimRight(line, "\r\n")
+  }
+  return line, err
+}
+
+func NewSaneLineReader(r io.Reader) LineReader {
+  return NewEolStripper(NewEofDelayer(NewBufferedLineReader(r)))
+}
+
 type LineCommentStripper struct {
   lr LineReader
 }
-func NewLineCommentStripper(lr LineReader) LineCommentStripper {
-  return LineCommentStripper{lr}
+func NewLineCommentStripper(lr LineReader) *LineCommentStripper {
+  return &LineCommentStripper{lr}
 }
-func (lcs LineCommentStripper) ReadLine() (line string, err error) {
+func (lcs *LineCommentStripper) ReadLine() (line string, err error) {
   line, err = lcs.lr.ReadLine()
   if err == nil || err == io.EOF {
     idx := strings.Index(line, "//")
@@ -77,33 +81,13 @@ type BlockCommentStripper struct {
   lr LineReader
   inComment bool
 }
-func NewBlockCommentStripper(lr LineReader) CommentStripper {
-  return BlockCommentStripper{lr, false}
-}
-
-type EndOfLineTrimmer struct {
-  cs CommentStripper
+func NewBlockCommentStripper(lr *LineReader) *BlockCommentStripper {
+  return &BlockCommentStripper{lr, false}
 }
 
 type EmptyLineStripper struct {
-  eolt EndOfLineTrimmer
+  lr LineReader
   emptyLineReturned bool
 }
 */
-
-type Cell struct {
-	state bool
-}
-
-func (c *Cell) isAlive() bool {
-	return c.state 
-}
-
-func NewCell() *Cell {
-	return &Cell{true}
-}
-
-func (c *Cell) evolve() {
-	c.state = false
-}
 

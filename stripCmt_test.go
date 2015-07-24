@@ -8,7 +8,7 @@ import (
 )
 
 const foo = "foo"
-const fooN = "foo\n"
+const fooN = foo + "\n"
 const bar = "bar"
 
 func TestLineReader0(t *testing.T) {
@@ -20,25 +20,8 @@ func TestLineReader1(t *testing.T) {
   expectOneLine(t, lr, fooN)
 }
 func TestLineReader2(t *testing.T) {
-  lr := NewBufferedLineReader(strings.NewReader(strings.Join([]string{foo, bar}, "\n")))
+  lr := NewBufferedLineReader(strings.NewReader(fooN + bar))
   expectTwoLinesEof(t, lr, fooN, bar)
-}
-
-func TestEolStripper0(t *testing.T) {
-  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo)))
-  expectEofLine(t, eols, 1, foo)
-}
-func TestEolStripperN(t *testing.T) {
-  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(fooN)))
-  expectOneLine(t, eols, foo)
-}
-func TestEolStripperR(t *testing.T) {
-  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(strings.Join([]string{foo, "\r"}, ""))))
-  expectEofLine(t, eols, 1, foo)
-}
-func TestEolStripperRN(t *testing.T) {
-  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(strings.Join([]string{foo, "\r\n"}, ""))))
-  expectOneLine(t, eols, foo)
 }
 
 func TestEofDelayerNoDelay(t *testing.T) {
@@ -50,16 +33,33 @@ func TestEofDelayerDelay(t *testing.T) {
   expectOneLine(t, lcs, foo)
 }
 
+func TestEolStripper0(t *testing.T) {
+  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo)))
+  expectEofLine(t, eols, 1, foo)
+}
+func TestEolStripperN(t *testing.T) {
+  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(fooN)))
+  expectOneLine(t, eols, foo)
+}
+func TestEolStripperR(t *testing.T) {
+  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo + "\r")))
+  expectEofLine(t, eols, 1, foo)
+}
+func TestEolStripperRN(t *testing.T) {
+  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo + "\r\n")))
+  expectOneLine(t, eols, foo)
+}
+
 func TestLineCommentStripperNoComment(t *testing.T) {
-  lcs := NewLineCommentStripper(NewEofDelayer(NewEolStripper(NewBufferedLineReader(strings.NewReader(fooN)))))
+  lcs := NewLineCommentStripper(NewSaneLineReader(strings.NewReader(fooN)))
   expectOneLine(t, lcs, foo)
 }
 func TestLineCommentStripperHalfComment(t *testing.T) {
-  lcs := NewLineCommentStripper(NewEofDelayer(NewEolStripper(NewBufferedLineReader(strings.NewReader(strings.Join([]string{foo, "// blue\n"}, ""))))))
+  lcs := NewLineCommentStripper(NewSaneLineReader(strings.NewReader(foo + "// blue\n")))
   expectOneLine(t, lcs, foo)
 }
 func TestLineCommentStripperFullComment(t *testing.T) {
-  lcs := NewLineCommentStripper(NewEofDelayer(NewEolStripper(NewBufferedLineReader(strings.NewReader("// blue")))))
+  lcs := NewLineCommentStripper(NewSaneLineReader(strings.NewReader("// blue")))
   expectOneLine(t, lcs, "")
 }
 
@@ -100,29 +100,5 @@ func expectEof(t *testing.T, lr LineReader) {
   if err != io.EOF {
     t.Fatal("ERROR: Expected EOF but got: ", err)
   }
-}
-
-
-
-func TestCellIsAlive(t *testing.T) {
-	cell := NewCell()
-	if !cell.isAlive() {
-		t.Fatal("Test Cell is Alive: RED") 
-	}
-}
-
-func TestCellIsDead(t *testing.T){
-	cell := Cell{false}
-	if cell.isAlive() {
-		t.Fatal("Fatal: the cell is alive.")
-	}
-}
-
-func TestCellDies(t *testing.T) {
-	cell := Cell{true}
-	cell.evolve()
-	if cell.isAlive() {
-		t.Fatal("Fatal: Cell is supposed to die")
-	}
 }
 
