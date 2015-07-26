@@ -58,6 +58,20 @@ func NewSaneLineReader(r io.Reader) LineReader {
   return NewEolStripper(NewEofDelayer(NewBufferedLineReader(r)))
 }
 
+type SpaceTrimmer struct {
+  lr LineReader
+}
+func NewSpaceTrimmer(lr LineReader) *SpaceTrimmer {
+  return &SpaceTrimmer{lr}
+}
+func (lcs *SpaceTrimmer) ReadLine() (line string, err error) {
+  line, err = lcs.lr.ReadLine()
+  if err == nil || err == io.EOF {
+    line = strings.TrimRight(line, "\r\n\t ")
+  }
+  return line, err
+}
+
 type LineCommentStripper struct {
   lr LineReader
 }

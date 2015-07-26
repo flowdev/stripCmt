@@ -50,6 +50,15 @@ func TestEolStripperRN(t *testing.T) {
   expectOneLine(t, eols, foo)
 }
 
+func TestSpaceTrimmerNoSpace(t *testing.T) {
+	st := NewSpaceTrimmer(NewSaneLineReader(strings.NewReader(foo)))
+	expectOneLine(t, st, foo)
+}
+func TestSpaceTrimmerAllSpace(t *testing.T) {
+	st := NewSpaceTrimmer(NewSaneLineReader(strings.NewReader(" \t  \r \t")))
+	expectOneLine(t, st, "")
+}
+
 func TestLineCommentStripperNoComment(t *testing.T) {
   lcs := NewLineCommentStripper(NewSaneLineReader(strings.NewReader(fooN)))
   expectOneLine(t, lcs, foo)
