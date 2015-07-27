@@ -59,6 +59,15 @@ func TestSpaceTrimmerAllSpace(t *testing.T) {
 	expectOneLine(t, st, "")
 }
 
+func TestEmptyLineStripperNoEmptyLines(t *testing.T) {
+	els := NewEmptyLineStripper(NewSaneLineReader(strings.NewReader(fooN)))
+	expectOneLine(t, els, foo)
+}
+func TestEmptyLineStripperAllEmptyLines(t *testing.T) {
+	els := NewEmptyLineStripper(NewSaneLineReader(strings.NewReader("\n\r\n\n\r\n\n")))
+	expectOneLine(t, els, "")
+}
+
 func TestLineCommentStripperNoComment(t *testing.T) {
   lcs := NewLineCommentStripper(NewSaneLineReader(strings.NewReader(fooN)))
   expectOneLine(t, lcs, foo)
