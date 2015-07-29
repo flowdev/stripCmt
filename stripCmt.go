@@ -1,124 +1,110 @@
 package main
 
 import (
-  "io"
-  "bufio"
   "strings"
 )
 
-type LineReader interface {
-  ReadLine() (line string, err error)
+type SpecialReader interface {
+  ConstStart() string
+  ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool)
 }
-
-type BufferedLineReader struct {
-  br *bufio.Reader
-}
-func NewBufferedLineReader(r io.Reader) *BufferedLineReader {
-  return &BufferedLineReader{bufio.NewReader(r)}
-}
-func (lr *BufferedLineReader) ReadLine() (line string, err error) {
-  return lr.br.ReadString('\n')
-}
-
-type EofDelayer struct {
+type SpecialReaderManager struct {
   lr LineReader
-  isEof bool
+  srs []SpecialReader
+  currentSpecialReader SpecialReader
 }
-func NewEofDelayer(lr LineReader) *EofDelayer {
-  return &EofDelayer{lr, false}
+func NewSpecialReaderManager(lr LineReader, srs ...SpecialReader) *SpecialReaderManager {
+  return &SpecialReaderManager{lr, srs, nil}
 }
-func (eofd *EofDelayer) ReadLine() (line string, err error) {
-  if eofd.isEof {
-    return "", io.EOF
+func (srm *SpecialReaderManager) ReadLine() (line string, err error) {
+  line, err = srm.lr.ReadLine()
+  return line, err
+}
+
+type LineCommentSpecialReader struct {
+}
+func NewLineCommentSpecialReader() *LineCommentSpecialReader {
+  return &LineCommentSpecialReader{}
+}
+func (lcsr *LineCommentSpecialReader) ConstStart() string {
+  return "//"
+}
+func (lcsr *LineCommentSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
+  return "", 0, true
+}
+
+type BlockCommentSpecialReader struct {
+}
+func NewBlockCommentSpecialReader() *BlockCommentSpecialReader {
+  return &BlockCommentSpecialReader{}
+}
+func (bcsr *BlockCommentSpecialReader) ConstStart() string {
+  return "/*"
+}
+func (bcsr *BlockCommentSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
+  pos := strings.Index(line, "*/")
+  if pos >= 0 {
+    return line[pos+2:], 0, true
   } else {
-    line, err = eofd.lr.ReadLine()
-    if err == io.EOF && len(line) > 0 {
-      eofd.isEof = true
-      return line, nil
-    }
-    return line, err
+    return "", 0, false
   }
 }
 
-type EolStripper struct {
-  lr LineReader
+type SingleQuoteSpecialReader struct {
 }
-func NewEolStripper(lr LineReader) *EolStripper {
-  return &EolStripper{lr}
+func NewSingleQuoteSpecialReader() *SingleQuoteSpecialReader {
+  return &SingleQuoteSpecialReader{}
 }
-func (eols *EolStripper) ReadLine() (line string, err error) {
-  line, err = eols.lr.ReadLine()
-  if err == nil || err == io.EOF {
-    line = strings.TrimRight(line, "\r\n")
+func (sqsr *SingleQuoteSpecialReader) ConstStart() string {
+  return "'"
+}
+func (sqsr *SingleQuoteSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
+  orgLine := line
+  orgPos := 0
+  substr := line
+  if firstLine {
+    substr = line[1:]
+    orgPos = 1
   }
-  return line, err
-}
-
-func NewSaneLineReader(r io.Reader) LineReader {
-  return NewEolStripper(NewEofDelayer(NewBufferedLineReader(r)))
-}
-
-type SpaceTrimmer struct {
-  lr LineReader
-}
-func NewSpaceTrimmer(lr LineReader) *SpaceTrimmer {
-  return &SpaceTrimmer{lr}
-}
-func (st *SpaceTrimmer) ReadLine() (line string, err error) {
-  line, err = st.lr.ReadLine()
-  if err == nil || err == io.EOF {
-    line = strings.TrimRight(line, "\r\n\t ")
+  pos := strings.IndexAny(substr, "'\\")
+  for pos >= 0 && substr[pos] == '\\' {
+    orgPos += pos+2
+    substr = substr[pos+2:]
+    pos = strings.IndexAny(substr, "'\\")
   }
-  return line, err
-}
-
-type EmptyLineStripper struct {
-  lr LineReader
-  lastLineEmpty bool
-}
-func NewEmptyLineStripper(lr LineReader) *EmptyLineStripper {
-  return &EmptyLineStripper{lr, false}
-}
-func (els *EmptyLineStripper) ReadLine() (line string, err error) {
-  line, err = els.lr.ReadLine()
-  for els.lastLineEmpty {
-    if err == nil && len(line) <= 0 {
-      line, err = els.lr.ReadLine()
-    } else {
-      els.lastLineEmpty = false
-    }
+  if pos >= 0 {
+    return orgLine, orgPos+pos+1, true
+  } else {
+    return orgLine, len(orgLine), false
   }
-  if len(line) <= 0 {
-    els.lastLineEmpty = true
+}
+
+type DoubleQuoteSpecialReader struct {
+}
+func NewDoubleQuoteSpecialReader() *DoubleQuoteSpecialReader {
+  return &DoubleQuoteSpecialReader{}
+}
+func (dqsr *DoubleQuoteSpecialReader) ConstStart() string {
+  return "\""
+}
+func (dqsr *DoubleQuoteSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
+  orgLine := line
+  orgPos := 0
+  substr := line
+  if firstLine {
+    substr = line[1:]
+    orgPos = 1
   }
-  return line, err
-}
-
-type LineCommentStripper struct {
-  lr LineReader
-}
-func NewLineCommentStripper(lr LineReader) *LineCommentStripper {
-  return &LineCommentStripper{lr}
-}
-func (lcs *LineCommentStripper) ReadLine() (line string, err error) {
-  line, err = lcs.lr.ReadLine()
-  if err == nil || err == io.EOF {
-    idx := strings.Index(line, "//")
-    if idx >= 0 {
-      line = line[0:idx]
-    }
+  pos := strings.IndexAny(substr, "\"\\")
+  for pos >= 0 && substr[pos] == '\\' {
+    orgPos += pos+2
+    substr = substr[pos+2:]
+    pos = strings.IndexAny(substr, "\"\\")
   }
-  return line, err
+  if pos >= 0 {
+    return orgLine, orgPos+pos+1, true
+  } else {
+    return orgLine, len(orgLine), false
+  }
 }
-
-
-/*
-type BlockCommentStripper struct {
-  lr LineReader
-  inComment bool
-}
-func NewBlockCommentStripper(lr *LineReader) *BlockCommentStripper {
-  return &BlockCommentStripper{lr, false}
-}
-*/
 

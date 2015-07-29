@@ -2,121 +2,177 @@ package main
 
 import (
 	"testing"
-	"io"
-	"strings"
-//	"fmt"
 )
 
-const foo = "foo"
-const fooN = foo + "\n"
-const bar = "bar"
-
-func TestLineReader0(t *testing.T) {
-  lr := NewBufferedLineReader(strings.NewReader(""))
-  expectEof(t, lr)
-}
-func TestLineReader1(t *testing.T) {
-  lr := NewBufferedLineReader(strings.NewReader(fooN))
-  expectOneLine(t, lr, fooN)
-}
-func TestLineReader2(t *testing.T) {
-  lr := NewBufferedLineReader(strings.NewReader(fooN + bar))
-  expectTwoLinesEof(t, lr, fooN, bar)
+func TestSpecialReaderManager(t *testing.T) {
+  // TODO: !!!
 }
 
-func TestEofDelayerNoDelay(t *testing.T) {
-  lcs := NewEofDelayer(NewBufferedLineReader(strings.NewReader(fooN)))
-  expectOneLine(t, lcs, fooN)
-}
-func TestEofDelayerDelay(t *testing.T) {
-  lcs := NewEofDelayer(NewBufferedLineReader(strings.NewReader(foo)))
-  expectOneLine(t, lcs, foo)
-}
-
-func TestEolStripper0(t *testing.T) {
-  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo)))
-  expectEofLine(t, eols, 1, foo)
-}
-func TestEolStripperN(t *testing.T) {
-  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(fooN)))
-  expectOneLine(t, eols, foo)
-}
-func TestEolStripperR(t *testing.T) {
-  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo + "\r")))
-  expectEofLine(t, eols, 1, foo)
-}
-func TestEolStripperRN(t *testing.T) {
-  eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo + "\r\n")))
-  expectOneLine(t, eols, foo)
-}
-
-func TestSpaceTrimmerNoSpace(t *testing.T) {
-	st := NewSpaceTrimmer(NewSaneLineReader(strings.NewReader(foo)))
-	expectOneLine(t, st, foo)
-}
-func TestSpaceTrimmerAllSpace(t *testing.T) {
-	st := NewSpaceTrimmer(NewSaneLineReader(strings.NewReader(" \t  \r \t")))
-	expectOneLine(t, st, "")
-}
-
-func TestEmptyLineStripperNoEmptyLines(t *testing.T) {
-	els := NewEmptyLineStripper(NewSaneLineReader(strings.NewReader(fooN)))
-	expectOneLine(t, els, foo)
-}
-func TestEmptyLineStripperAllEmptyLines(t *testing.T) {
-	els := NewEmptyLineStripper(NewSaneLineReader(strings.NewReader("\n\r\n\n\r\n\n")))
-	expectOneLine(t, els, "")
-}
-
-func TestLineCommentStripperNoComment(t *testing.T) {
-  lcs := NewLineCommentStripper(NewSaneLineReader(strings.NewReader(fooN)))
-  expectOneLine(t, lcs, foo)
-}
-func TestLineCommentStripperHalfComment(t *testing.T) {
-  lcs := NewLineCommentStripper(NewSaneLineReader(strings.NewReader(foo + "// blue\n")))
-  expectOneLine(t, lcs, foo)
-}
-func TestLineCommentStripperFullComment(t *testing.T) {
-  lcs := NewLineCommentStripper(NewSaneLineReader(strings.NewReader("// blue")))
-  expectOneLine(t, lcs, "")
-}
-
-
-func expectOneLine(t *testing.T, lr LineReader, expected string) {
-  expectLine(t, lr, 1, expected)
-  expectEof(t, lr)
-}
-func expectTwoLines(t *testing.T, lr LineReader, expected1 string, expected2 string) {
-  expectLine(t, lr, 1, expected1)
-  expectLine(t, lr, 2, expected2)
-  expectEof(t, lr)
-}
-func expectTwoLinesEof(t *testing.T, lr LineReader, expected1 string, expected2 string) {
-  expectLine(t, lr, 1, expected1)
-  expectEofLine(t, lr, 2, expected2)
-}
-func expectLine(t *testing.T, lr LineReader, lineNum int, expected string) {
-  line, err := lr.ReadLine()
-  if err != nil {
-    t.Fatal("ERROR: Unexpected error for line (", lineNum, "): ", err.Error())
-  }
-  if line != expected {
-    t.Error("ERROR: Unexpected line (", lineNum, "): '", line, "' (expected is '", expected, "').")
+func TestLineCommentSpecialReaderStart(t *testing.T) {
+  lcsr := NewLineCommentSpecialReader()
+  start := lcsr.ConstStart()
+  if start != "//" {
+    t.Error("ERROR: Unexpected start: '", start, "' (expected is ' //  ').")
   }
 }
-func expectEofLine(t *testing.T, lr LineReader, lineNum int, expected string) {
-  line, err := lr.ReadLine()
-  if err != io.EOF {
-    t.Error("ERROR: Expected EOF but got: ", err)
+func TestLineCommentSpecialReaderComment(t *testing.T) {
+  lcsr := NewLineCommentSpecialReader()
+  substr, restPos, done := lcsr.ReadSpecial("// bla comment\n", true)
+  if substr != "" {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '  ').")
   }
-  if line != expected {
-    t.Error("ERROR: Unexpected line (", lineNum, "): '", line, "' (expected is '", expected, "').")
+  if restPos != 0 {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is 0).")
+  }
+  if !done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: true).")
   }
 }
-func expectEof(t *testing.T, lr LineReader) {
-  _, err := lr.ReadLine()
-  if err != io.EOF {
-    t.Fatal("ERROR: Expected EOF but got: ", err)
+
+func TestBlockCommentSpecialReaderStart(t *testing.T) {
+  bcsr := NewBlockCommentSpecialReader()
+  start := bcsr.ConstStart()
+  if start != "/*" {
+    t.Error("ERROR: Unexpected start: '", start, "' (expected is ' /*  ').")
+  }
+}
+func TestBlockCommentSpecialReaderCommentDone(t *testing.T) {
+  bcsr := NewBlockCommentSpecialReader()
+  substr, restPos, done := bcsr.ReadSpecial("/* bla comment */ blue\n", true)
+  if substr != " blue\n" {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '  blue\\n ').")
+  }
+  if restPos != 0 {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is 0).")
+  }
+  if !done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: true).")
+  }
+}
+func TestBlockCommentSpecialReaderCommentNotDone(t *testing.T) {
+  bcsr := NewBlockCommentSpecialReader()
+  substr, restPos, done := bcsr.ReadSpecial("/* bla comment \n", true)
+  if substr != "" {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '  blue\\n ').")
+  }
+  if restPos != 0 {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is 0).")
+  }
+  if done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: false).")
+  }
+}
+func TestBlockCommentSpecialReaderCommentContinued(t *testing.T) {
+  bcsr := NewBlockCommentSpecialReader()
+  substr, restPos, done := bcsr.ReadSpecial("*/ bla blue \n", false)
+  if substr != " bla blue \n" {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '  bla blue \\n ').")
+  }
+  if restPos != 0 {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is 0).")
+  }
+  if !done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: true).")
+  }
+}
+
+func TestSingleQuoteSpecialReaderStart(t *testing.T) {
+  sqsr := NewSingleQuoteSpecialReader()
+  start := sqsr.ConstStart()
+  if start != "'" {
+    t.Error("ERROR: Unexpected start: '", start, "' (expected is ' ' ').")
+  }
+}
+func TestSingleQuoteSpecialReaderDone(t *testing.T) {
+  sqsr := NewSingleQuoteSpecialReader()
+  line := "'foo\\r \\n \\\\ \\t \\'' bar"
+  substr, restPos, done := sqsr.ReadSpecial(line, true)
+  if substr != line {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '", line, "').")
+  }
+  if restPos != 19 {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is 19).")
+  }
+  if !done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: true).")
+  }
+}
+func TestSingleQuoteSpecialReaderNotDone(t *testing.T) {
+  sqsr := NewSingleQuoteSpecialReader()
+  line := "'foo\\r \\n \\\\ \\t \\\" \\'"
+  substr, restPos, done := sqsr.ReadSpecial(line, true)
+  if substr != line {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '", line, "').")
+  }
+  if restPos != len(line) {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is", len(line), ").")
+  }
+  if done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: false).")
+  }
+}
+func TestSingleQuoteSpecialReaderContinued(t *testing.T) {
+  sqsr := NewSingleQuoteSpecialReader()
+  line := "'bar"
+  substr, restPos, done := sqsr.ReadSpecial(line, false)
+  if substr != line {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '", line, "').")
+  }
+  if restPos != 1 {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is 1).")
+  }
+  if !done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: true).")
+  }
+}
+
+func TestDoubleQuoteSpecialReaderStart(t *testing.T) {
+  sqsr := NewDoubleQuoteSpecialReader()
+  start := sqsr.ConstStart()
+  if start != "\"" {
+    t.Error("ERROR: Unexpected start: '", start, "' (expected is ' \" ').")
+  }
+}
+func TestDoubleQuoteSpecialReaderDone(t *testing.T) {
+  sqsr := NewDoubleQuoteSpecialReader()
+  line := "\"foo\\r \\n \\\\ \\t \\\"\" bar"
+  substr, restPos, done := sqsr.ReadSpecial(line, true)
+  if substr != line {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '", line, "').")
+  }
+  if restPos != 19 {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is 19).")
+  }
+  if !done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: true).")
+  }
+}
+func TestDoubleQuoteSpecialReaderNotDone(t *testing.T) {
+  sqsr := NewDoubleQuoteSpecialReader()
+  line := "\"foo\\r \\n \\\\ \\t \\\" \\'"
+  substr, restPos, done := sqsr.ReadSpecial(line, true)
+  if substr != line {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '", line, "').")
+  }
+  if restPos != len(line) {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is", len(line), ").")
+  }
+  if done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: false).")
+  }
+}
+func TestDoubleQuoteSpecialReaderContinued(t *testing.T) {
+  sqsr := NewDoubleQuoteSpecialReader()
+  line := "\"bar"
+  substr, restPos, done := sqsr.ReadSpecial(line, false)
+  if substr != line {
+    t.Error("ERROR: Unexpected substr: '", substr, "' (expected is '", line, "').")
+  }
+  if restPos != 1 {
+    t.Error("ERROR: Unexpected restPos:", restPos, "(expected is 1).")
+  }
+  if !done {
+    t.Error("ERROR: Unexpected done:", done, "(expected is: true).")
   }
 }
 
