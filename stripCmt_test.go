@@ -9,11 +9,7 @@ func TestSpecialReaderManager(t *testing.T) {
 }
 
 func TestLineCommentSpecialReaderStart(t *testing.T) {
-  lcsr := NewLineCommentSpecialReader()
-  start := lcsr.ConstStart()
-  if start != "//" {
-    t.Error("ERROR: Unexpected start: '", start, "' (expected is ' //  ').")
-  }
+  expectStart(t, NewLineCommentSpecialReader(), "//")
 }
 func TestLineCommentSpecialReaderComment(t *testing.T) {
   lcsr := NewLineCommentSpecialReader()
@@ -30,11 +26,7 @@ func TestLineCommentSpecialReaderComment(t *testing.T) {
 }
 
 func TestBlockCommentSpecialReaderStart(t *testing.T) {
-  bcsr := NewBlockCommentSpecialReader()
-  start := bcsr.ConstStart()
-  if start != "/*" {
-    t.Error("ERROR: Unexpected start: '", start, "' (expected is ' /*  ').")
-  }
+  expectStart(t, NewBlockCommentSpecialReader(), "//")
 }
 func TestBlockCommentSpecialReaderCommentDone(t *testing.T) {
   bcsr := NewBlockCommentSpecialReader()
@@ -77,11 +69,7 @@ func TestBlockCommentSpecialReaderCommentContinued(t *testing.T) {
 }
 
 func TestSingleQuoteSpecialReaderStart(t *testing.T) {
-  sqsr := NewSingleQuoteSpecialReader()
-  start := sqsr.ConstStart()
-  if start != "'" {
-    t.Error("ERROR: Unexpected start: '", start, "' (expected is ' ' ').")
-  }
+  expectStart(t, NewSingleQuoteSpecialReader(), "//")
 }
 func TestSingleQuoteSpecialReaderDone(t *testing.T) {
   sqsr := NewSingleQuoteSpecialReader()
@@ -127,11 +115,7 @@ func TestSingleQuoteSpecialReaderContinued(t *testing.T) {
 }
 
 func TestDoubleQuoteSpecialReaderStart(t *testing.T) {
-  sqsr := NewDoubleQuoteSpecialReader()
-  start := sqsr.ConstStart()
-  if start != "\"" {
-    t.Error("ERROR: Unexpected start: '", start, "' (expected is ' \" ').")
-  }
+  expectStart(t, NewDoubleQuoteSpecialReader(), "//")
 }
 func TestDoubleQuoteSpecialReaderDone(t *testing.T) {
   sqsr := NewDoubleQuoteSpecialReader()
@@ -176,3 +160,9 @@ func TestDoubleQuoteSpecialReaderContinued(t *testing.T) {
   }
 }
 
+func expectStart(t *testing.T, sr SpecialReader, expected string) {
+  start := sr.ConstStart()
+  if start != expected {
+    t.Error("ERROR: Unexpected start: '", start, "' (expected is '", expected, "').")
+  }
+}

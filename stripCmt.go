@@ -59,24 +59,7 @@ func (sqsr *SingleQuoteSpecialReader) ConstStart() string {
   return "'"
 }
 func (sqsr *SingleQuoteSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
-  orgLine := line
-  orgPos := 0
-  substr := line
-  if firstLine {
-    substr = line[1:]
-    orgPos = 1
-  }
-  pos := strings.IndexAny(substr, "'\\")
-  for pos >= 0 && substr[pos] == '\\' {
-    orgPos += pos+2
-    substr = substr[pos+2:]
-    pos = strings.IndexAny(substr, "'\\")
-  }
-  if pos >= 0 {
-    return orgLine, orgPos+pos+1, true
-  } else {
-    return orgLine, len(orgLine), false
-  }
+  return ReadSpecialQuote(line, firstLine, sqsr.ConstStart())
 }
 
 type DoubleQuoteSpecialReader struct {
@@ -88,18 +71,22 @@ func (dqsr *DoubleQuoteSpecialReader) ConstStart() string {
   return "\""
 }
 func (dqsr *DoubleQuoteSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
+  return ReadSpecialQuote(line, firstLine, dqsr.ConstStart())
+}
+
+func ReadSpecialQuote(line string, firstLine bool, quote string) (substring string, restPos int, done bool) {
   orgLine := line
   orgPos := 0
   substr := line
   if firstLine {
-    substr = line[1:]
-    orgPos = 1
+    substr = line[len(quote):]
+    orgPos = len(quote)
   }
-  pos := strings.IndexAny(substr, "\"\\")
+  pos := strings.IndexAny(substr, quote+"\\")
   for pos >= 0 && substr[pos] == '\\' {
     orgPos += pos+2
     substr = substr[pos+2:]
-    pos = strings.IndexAny(substr, "\"\\")
+    pos = strings.IndexAny(substr, quote+"\\")
   }
   if pos >= 0 {
     return orgLine, orgPos+pos+1, true
@@ -108,3 +95,4 @@ func (dqsr *DoubleQuoteSpecialReader) ReadSpecial(line string, firstLine bool) (
   }
 }
 
+// Renate (Owe): 04635/1386
