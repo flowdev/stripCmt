@@ -1,8 +1,8 @@
 package main
 
 import (
-	"testing"
 	"strings"
+	"testing"
 )
 
 func TestSpaceTrimmerNoSpace(t *testing.T) {
@@ -22,4 +22,3 @@ func TestEmptyLineStripperAllEmptyLines(t *testing.T) {
 	els := NewEmptyLineStripper(NewSaneLineReader(strings.NewReader("\n\r\n\n\r\n\n")))
 	expectOneLine(t, els, "")
 }
-
