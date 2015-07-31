@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strings"
 	"io"
+	"strings"
 )
 
 type SpecialReaderManager struct {
@@ -13,6 +13,9 @@ type SpecialReaderManager struct {
 
 func NewSpecialReaderManager(lr LineReader, srs ...SpecialReader) *SpecialReaderManager {
 	return &SpecialReaderManager{lr, srs, nil}
+}
+func NewStripCmtLineReader(lr LineReader) *SpecialReaderManager {
+	return &SpecialReaderManager{lr, []SpecialReader{NewSingleQuoteSpecialReader(), NewDoubleQuoteSpecialReader(), NewLineCommentSpecialReader(), NewBlockCommentSpecialReader()}, nil}
 }
 func (srm *SpecialReaderManager) ReadLine() (line string, err error) {
 	line, err = srm.lr.ReadLine()
@@ -34,7 +37,6 @@ func (srm *SpecialReaderManager) readSpecial(line string) string {
 			rest = rest[pos:]
 			srm.cursr = firstsr
 		} else {
-			// TODO: evaluate return values
 			substr, restPos, done := srm.cursr.ReadSpecial(rest, firstLine)
 			if restPos > 0 {
 				result += substr[0:restPos]
@@ -61,4 +63,3 @@ func firstSpecialReader(line string, srs []SpecialReader) (firstsr SpecialReader
 	}
 	return firstsr, min
 }
-

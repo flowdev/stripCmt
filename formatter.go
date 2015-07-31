@@ -42,3 +42,7 @@ func (els *EmptyLineStripper) ReadLine() (line string, err error) {
 	}
 	return line, err
 }
+
+func NewFormatter(lr LineReader) LineReader {
+	return NewEmptyLineStripper(NewSpaceTrimmer(lr))
+}
