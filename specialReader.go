@@ -35,8 +35,10 @@ func (bcsr *BlockCommentSpecialReader) ReadSpecial(line string, firstLine bool) 
 	pos := strings.Index(line, "*/")
 	if pos >= 0 {
 		return line[pos+2:], 0, true
-	} else {
+	} else if firstLine {
 		return "", 0, false
+	} else {
+		return "", -1, false
 	}
 }
 

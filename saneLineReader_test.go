@@ -16,51 +16,51 @@ func TestLineReader0(t *testing.T) {
 }
 func TestLineReader1(t *testing.T) {
 	lr := NewBufferedLineReader(strings.NewReader(fooN))
-	expectOneLine(t, lr, fooN)
+	expectLines(t, lr, fooN)
 }
 func TestLineReader2(t *testing.T) {
 	lr := NewBufferedLineReader(strings.NewReader(fooN + bar))
-	expectTwoLinesEof(t, lr, fooN, bar)
+	expectLinesEof(t, lr, fooN, bar)
 }
 
 func TestEofDelayerNoDelay(t *testing.T) {
 	lcs := NewEofDelayer(NewBufferedLineReader(strings.NewReader(fooN)))
-	expectOneLine(t, lcs, fooN)
+	expectLines(t, lcs, fooN)
 }
 func TestEofDelayerDelay(t *testing.T) {
 	lcs := NewEofDelayer(NewBufferedLineReader(strings.NewReader(foo)))
-	expectOneLine(t, lcs, foo)
+	expectLines(t, lcs, foo)
 }
 
 func TestEolStripper0(t *testing.T) {
 	eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo)))
-	expectEofLine(t, eols, 1, foo)
+	expectLinesEof(t, eols, foo)
 }
 func TestEolStripperN(t *testing.T) {
 	eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(fooN)))
-	expectOneLine(t, eols, foo)
+	expectLines(t, eols, foo)
 }
 func TestEolStripperR(t *testing.T) {
 	eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo + "\r")))
-	expectEofLine(t, eols, 1, foo)
+	expectLinesEof(t, eols, foo)
 }
 func TestEolStripperRN(t *testing.T) {
 	eols := NewEolStripper(NewBufferedLineReader(strings.NewReader(foo + "\r\n")))
-	expectOneLine(t, eols, foo)
+	expectLines(t, eols, foo)
 }
 
-func expectOneLine(t *testing.T, lr LineReader, expected string) {
-	expectLine(t, lr, 1, expected)
+func expectLines(t *testing.T, lr LineReader, expected ...string) {
+	for i := 0; i < len(expected); i++ {
+		expectLine(t, lr, i+1, expected[i])
+	}
 	expectEof(t, lr)
 }
-func expectTwoLines(t *testing.T, lr LineReader, expected1 string, expected2 string) {
-	expectLine(t, lr, 1, expected1)
-	expectLine(t, lr, 2, expected2)
-	expectEof(t, lr)
-}
-func expectTwoLinesEof(t *testing.T, lr LineReader, expected1 string, expected2 string) {
-	expectLine(t, lr, 1, expected1)
-	expectEofLine(t, lr, 2, expected2)
+func expectLinesEof(t *testing.T, lr LineReader, expected ...string) {
+	len := len(expected)
+	for i := 0; i < len-1; i++ {
+		expectLine(t, lr, i+1, expected[i])
+	}
+	expectEofLine(t, lr, len, expected[len-1])
 }
 func expectLine(t *testing.T, lr LineReader, lineNum int, expected string) {
 	line, err := lr.ReadLine()
