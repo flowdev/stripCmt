@@ -3,12 +3,26 @@ package main
 import (
 	"io"
 	"strings"
+	"os"
+	"fmt"
 )
 
 type SpecialReaderManager struct {
 	lr    LineReader
 	srs   []SpecialReader
 	cursr SpecialReader
+}
+
+func main() {
+	lr := NewFormatter(NewStripCmtLineReader(NewSaneLineReader(os.Stdin)))
+	line, err := lr.ReadLine()
+	for ; err == nil; line, err = lr.ReadLine() {
+		fmt.Println(line)
+	}
+	if err != io.EOF {
+		fmt.Fprintln(os.Stderr, "ERROR:", err.Error())
+		os.Exit(1)
+	}
 }
 
 func NewSpecialReaderManager(lr LineReader, srs ...SpecialReader) *SpecialReaderManager {
