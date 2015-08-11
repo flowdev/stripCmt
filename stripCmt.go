@@ -2,7 +2,6 @@ package main
 
 import (
 	"io"
-	"strings"
 	"os"
 	"fmt"
 )
@@ -42,47 +41,34 @@ func (srm *SpecialReaderManager) ReadLine() (line string, err error) {
 	}
 	return line, err
 }
-func (srm *SpecialReaderManager) readSpecial(line string) (substr string, deleted bool) {
-	substr = ""
-	rest := line
+func (srm *SpecialReaderManager) readSpecial(line string) (newLine string, deleted bool) {
+	restPos := 0
 	firstLine := false
-	i := 0
+	done := false
 
-	for len(rest) > 0 {
+	for restPos < len(line) {
 		if srm.cursr == nil {
 			firstLine = true
-			firstsr, pos := firstSpecialReader(rest, srm.srs)
-			substr += rest[0:pos]
-			rest = rest[pos:]
-			srm.cursr = firstsr
+			srm.cursr, restPos = firstSpecialReader(line, restPos, srm.srs)
 		} else {
-			subspec, restPos, done := srm.cursr.ReadSpecial(rest, firstLine)
-			switch {
-			case restPos > 0:
-				substr += subspec[0:restPos]
-				rest = subspec[restPos:]
-			case restPos == 0:
-				rest = subspec
-			default:
-				rest = ""
-				if len(substr) <= 0 {
-					deleted = true
-				}
+			line, restPos, done = srm.cursr.ReadSpecial(line, restPos, firstLine)
+			if restPos < 0 {
+				deleted = true
+				restPos = len(line)
 			}
 			if done {
 				srm.cursr = nil
 			}
 		}
-		i++
 	}
-	return substr, deleted
+	return line, deleted
 }
 
-func firstSpecialReader(line string, srs []SpecialReader) (firstsr SpecialReader, pos int) {
+func firstSpecialReader(line string, start int, srs []SpecialReader) (firstsr SpecialReader, pos int) {
 	min := len(line)
-	for i := 0; i < len(srs) && min > 0; i++ {
-		pos = strings.Index(line, srs[i].ConstStart())
-		if pos >= 0 && pos < min {
+	for i := 0; i < len(srs) && min > start; i++ {
+		pos = srs[i].SpecialStart(line, start)
+		if pos < min {
 			firstsr = srs[i]
 			min = pos
 		}

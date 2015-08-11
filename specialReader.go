@@ -5,8 +5,8 @@ import (
 )
 
 type SpecialReader interface {
-	ConstStart() string
-	ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool)
+	SpecialStart(line string, start int) int
+	ReadSpecial(line string, start int, firstLine bool) (newLine string, restPos int, done bool)
 }
 
 type LineCommentSpecialReader struct {
@@ -15,11 +15,16 @@ type LineCommentSpecialReader struct {
 func NewLineCommentSpecialReader() *LineCommentSpecialReader {
 	return &LineCommentSpecialReader{}
 }
-func (lcsr *LineCommentSpecialReader) ConstStart() string {
-	return "//"
+func (lcsr *LineCommentSpecialReader) SpecialStart(line string, start int) int {
+	return index(line, start, "//")
 }
-func (lcsr *LineCommentSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
-	return "", 0, true
+func (lcsr *LineCommentSpecialReader) ReadSpecial(line string, start int, firstLine bool) (newLine string, restPos int, done bool) {
+	newLine = strings.Trim(line[0:start], "\r\n\t ")
+	if len(newLine) <= 0 {
+		return "", -1, true
+	} else {
+		return line[0:start], start, true
+	}
 }
 
 type BlockCommentSpecialReader struct {
@@ -28,17 +33,23 @@ type BlockCommentSpecialReader struct {
 func NewBlockCommentSpecialReader() *BlockCommentSpecialReader {
 	return &BlockCommentSpecialReader{}
 }
-func (bcsr *BlockCommentSpecialReader) ConstStart() string {
-	return "/*"
+func (bcsr *BlockCommentSpecialReader) SpecialStart(line string, start int) int {
+	return index(line, start, "/*")
 }
-func (bcsr *BlockCommentSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
-	pos := strings.Index(line, "*/")
+func (bcsr *BlockCommentSpecialReader) ReadSpecial(line string, start int, firstLine bool) (newLine string, restPos int, done bool) {
+	pos := strings.Index(line[start:], "*/")
 	if pos >= 0 {
-		return line[pos+2:], 0, true
+		newLine = line[0:start] + line[start+pos+2:]
 	} else if firstLine {
-		return "", 0, false
+		newLine = line[0:start]
 	} else {
-		return "", -1, false
+		newLine = ""
+	}
+	tmpLine := strings.Trim(newLine, "\r\n\t ")
+	if len(tmpLine) <= 0 {
+		return "", -1, (pos>=0)
+	} else {
+		return newLine, start, (pos>=0)
 	}
 }
 
@@ -48,11 +59,11 @@ type SingleQuoteSpecialReader struct {
 func NewSingleQuoteSpecialReader() *SingleQuoteSpecialReader {
 	return &SingleQuoteSpecialReader{}
 }
-func (sqsr *SingleQuoteSpecialReader) ConstStart() string {
-	return "'"
+func (sqsr *SingleQuoteSpecialReader) SpecialStart(line string, start int) int {
+	return index(line, start, "'")
 }
-func (sqsr *SingleQuoteSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
-	return ReadSpecialQuote(line, firstLine, sqsr.ConstStart())
+func (sqsr *SingleQuoteSpecialReader) ReadSpecial(line string, start int, firstLine bool) (newLine string, restPos int, done bool) {
+	return readSpecialQuote(line, start, firstLine, "'")
 }
 
 type DoubleQuoteSpecialReader struct {
@@ -61,30 +72,42 @@ type DoubleQuoteSpecialReader struct {
 func NewDoubleQuoteSpecialReader() *DoubleQuoteSpecialReader {
 	return &DoubleQuoteSpecialReader{}
 }
-func (dqsr *DoubleQuoteSpecialReader) ConstStart() string {
-	return "\""
+func (dqsr *DoubleQuoteSpecialReader) SpecialStart(line string, start int) int {
+	return index(line, start, "\"")
 }
-func (dqsr *DoubleQuoteSpecialReader) ReadSpecial(line string, firstLine bool) (substring string, restPos int, done bool) {
-	return ReadSpecialQuote(line, firstLine, dqsr.ConstStart())
+func (dqsr *DoubleQuoteSpecialReader) ReadSpecial(line string, start int, firstLine bool) (newLine string, restPos int, done bool) {
+	return readSpecialQuote(line, start, firstLine, "\"")
 }
 
-func ReadSpecialQuote(line string, firstLine bool, quote string) (substring string, restPos int, done bool) {
-	orgLine := line
-	orgPos := 0
-	substr := line
+func readSpecialQuote(line string, start int, firstLine bool, quote string) (newLine string, restPos int, done bool) {
+	oldPos := start
 	if firstLine {
-		substr = line[len(quote):]
-		orgPos = len(quote)
+		oldPos += len(quote)
 	}
+	substr := line[oldPos:]
 	pos := strings.IndexAny(substr, quote+"\\")
 	for pos >= 0 && substr[pos] == '\\' {
-		orgPos += pos + 2
-		substr = substr[pos+2:]
+		oldPos += pos + 2
+		if len(substr) > pos+2 {
+			substr = substr[pos+2:]
+		} else {
+			substr = ""
+		}
 		pos = strings.IndexAny(substr, quote+"\\")
 	}
 	if pos >= 0 {
-		return orgLine, orgPos + pos + 1, true
+		return line, oldPos + pos + 1, true
 	} else {
-		return orgLine, len(orgLine), false
+		return line, len(line), false
 	}
 }
+
+func index(line string, start int, substr string) int {
+	pos := strings.Index(line[start:], substr)
+	if pos >= 0 {
+		return start + pos
+	} else {
+		return len(line)
+	}
+}
+
